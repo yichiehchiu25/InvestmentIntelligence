@@ -1,0 +1,17 @@
+{
+  "lastUpdated": "2025-06-26T14:45:58.399Z",
+  "availableDates": [
+    "2025-06-26"
+  ],
+  "totalSummaries": 2,
+  "categories": [
+    "總體經濟",
+    "科技股",
+    "能源商品",
+    "加密貨幣"
+  ],
+  "storageStructure": {
+    "summaries": "storage/summaries/YYYY-MM-DD/category.md",
+    "raw": "storage/raw/YYYY-MM-DD/source_timestamp.json"
+  }
+}
