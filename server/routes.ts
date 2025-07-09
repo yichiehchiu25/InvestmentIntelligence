@@ -7,6 +7,7 @@ import { aiService } from "./services/aiService";
 import { calendarService } from "./services/calendarService";
 import { schedulerService } from "./services/schedulerService";
 import { fileStorageService } from "./services/fileStorageService";
+import { yahooFinanceService } from "./services/yahooFinanceService";
 import { insertNewsArticleSchema, insertCalendarEventSchema, insertSystemConfigSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -31,6 +32,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Economic data refreshed successfully", data: indicators });
     } catch (error) {
       res.status(500).json({ error: "Failed to refresh economic data" });
+    }
+  });
+
+  // Yahoo Finance API Routes
+  app.get("/api/yahoo-finance/taiwan-market", async (req, res) => {
+    try {
+      const taiwanData = await yahooFinanceService.fetchTaiwanMarketData();
+      if (!taiwanData) {
+        return res.status(500).json({ error: "Failed to fetch Taiwan market data" });
+      }
+      res.json(taiwanData);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch Taiwan market data" });
+    }
+  });
+
+  app.get("/api/yahoo-finance/symbol/:symbol", async (req, res) => {
+    try {
+      const { symbol } = req.params;
+      const data = await yahooFinanceService.fetchYahooFinanceData(symbol);
+      if (!data) {
+        return res.status(404).json({ error: "Symbol not found or failed to fetch data" });
+      }
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch symbol data" });
+    }
+  });
+
+  app.post("/api/yahoo-finance/multiple-symbols", async (req, res) => {
+    try {
+      const { symbols } = req.body;
+      if (!symbols || !Array.isArray(symbols)) {
+        return res.status(400).json({ error: "Symbols array is required" });
+      }
+      
+      const data = await yahooFinanceService.fetchMultipleSymbols(symbols);
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch multiple symbols data" });
+    }
+  });
+
+  app.get("/api/yahoo-finance/popular-taiwan-stocks", async (req, res) => {
+    try {
+      const symbols = yahooFinanceService.getPopularTaiwanStocks();
+      const data = await yahooFinanceService.fetchMultipleSymbols(symbols);
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch popular Taiwan stocks" });
+    }
+  });
+
+  app.get("/api/yahoo-finance/taiwan-indices", async (req, res) => {
+    try {
+      const symbols = yahooFinanceService.getTaiwanIndices();
+      const data = await yahooFinanceService.fetchMultipleSymbols(symbols);
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch Taiwan indices" });
     }
   });
 

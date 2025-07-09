@@ -1,78 +1,285 @@
 import { AppHeader } from "@/components/AppHeader";
-import { MacroeconomicDashboard } from "@/components/MacroeconomicDashboard";
 import { FinancialCalendar } from "@/components/FinancialCalendar";
 import { NewsAggregationPanel } from "@/components/NewsAggregationPanel";
-import { ConfigurationPanel } from "@/components/ConfigurationPanel";
+import { 
+  MarketOverviewWidget, 
+  AdvancedChartWidget, 
+  WatchlistWidget,
+  SidebarMarketDataWidget,
+  EconomicCalendarWidget
+} from "@/components/TradingViewWidgets";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { TrendingUp, TrendingDown, Calendar, ChartBar } from "lucide-react";
 
 export default function Dashboard() {
+  const [activeMarket, setActiveMarket] = useState<"taiwan" | "us">("taiwan");
+  const [selectedStock, setSelectedStock] = useState("NASDAQ:AAPL");
+
+  // Listen for market switch events from header
+  useEffect(() => {
+    const handleMarketSwitch = (event: CustomEvent) => {
+      setActiveMarket(event.detail);
+      // Update selected stock based on market
+      if (event.detail === "taiwan") {
+        setSelectedStock("TPE:2330"); // 台積電
+      } else {
+        setSelectedStock("NASDAQ:AAPL"); // Apple
+      }
+    };
+
+    window.addEventListener('marketSwitch', handleMarketSwitch as EventListener);
+    return () => {
+      window.removeEventListener('marketSwitch', handleMarketSwitch as EventListener);
+    };
+  }, []);
+
   return (
-    <div className="bg-neutral min-h-screen">
+    <div className="bg-gray-50 min-h-screen">
       <AppHeader />
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <MacroeconomicDashboard />
-        <FinancialCalendar />
-        <NewsAggregationPanel />
-        <ConfigurationPanel />
-        
-        {/* Future Features Placeholder */}
-        <section className="mb-12">
-          <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border-2 border-dashed border-gray-300 p-8 text-center">
-            <div className="max-w-md mx-auto">
-              <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                <i className="fas fa-chart-pie text-2xl text-gray-400"></i>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">投資組合整合</h3>
-              <p className="text-gray-600 mb-4">
-                即將推出帳戶串接功能，可追蹤投資損益並根據新聞分析提供個人化投資建議。
-              </p>
-              <div className="flex items-center justify-center space-x-4 text-sm text-gray-500">
-                <span><i className="fas fa-check mr-1"></i>帳戶串接</span>
-                <span><i className="fas fa-check mr-1"></i>損益追蹤</span>
-                <span><i className="fas fa-check mr-1"></i>AI投資建議</span>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Main Dashboard Layout */}
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+          
+          {/* Left Side - Main Content (3/4 width) */}
+          <div className="xl:col-span-3 space-y-6">
+            
+            {/* Top Chart Section */}
+            <Card className="h-[600px]">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                <div>
+                  <CardTitle className="text-2xl font-bold">
+                    {activeMarket === "taiwan" ? "台股市場總覽" : "美股市場總覽"}
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    即時股價走勢與技術分析圖表
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Badge variant={activeMarket === "taiwan" ? "default" : "secondary"}>
+                    {activeMarket === "taiwan" ? "台灣市場" : "美國市場"}
+                  </Badge>
+                  <div className="flex items-center space-x-1 text-sm">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-green-600">即時</span>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0 h-[520px]">
+                <AdvancedChartWidget 
+                  symbol={selectedStock} 
+                  height="520" 
+                  market={activeMarket}
+                />
+              </CardContent>
+            </Card>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-3">平台功能</h4>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li><a href="#dashboard" className="hover:text-primary transition-colors">宏觀經濟指標</a></li>
-                <li><a href="#calendar" className="hover:text-primary transition-colors">財經日曆</a></li>
-                <li><a href="#news" className="hover:text-primary transition-colors">新聞分析</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">AI摘要報告</a></li>
-              </ul>
+            {/* Market Overview Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ChartBar className="h-5 w-5" />
+                  市場概覽
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <MarketOverviewWidget height="400" market={activeMarket} />
+              </CardContent>
+            </Card>
+
+            {/* News and Watchlist Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              
+              {/* News Board / Market Summary (Left - Green section) */}
+              <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+                <CardHeader>
+                  <CardTitle className="text-green-800">新聞摘要 / 市場總結</CardTitle>
+                  <p className="text-green-600 text-sm">AI整理的今日重點新聞與市場動態</p>
+                </CardHeader>
+                <CardContent>
+                  <NewsAggregationPanel />
+                </CardContent>
+              </Card>
+
+              {/* Stocks Watchlist (Right - Blue section) */}
+              <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+                <CardHeader>
+                  <CardTitle className="text-blue-800">
+                    關注股票清單 ({activeMarket === "taiwan" ? "台股" : "美股"})
+                  </CardTitle>
+                  <p className="text-blue-600 text-sm">從TradingView監控清單顯示</p>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <WatchlistWidget height="400" market={activeMarket} />
+                </CardContent>
+              </Card>
             </div>
-            <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-3">技術支援</h4>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li><a href="#" className="hover:text-primary transition-colors">API文件</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">使用說明</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">問題回報</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">系統狀態</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-3">資料來源</h4>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li>經濟數據: Fed, ECB, 台灣央行</li>
-                <li>新聞來源: Reuters, Bloomberg</li>
-                <li>AI分析: OpenAI GPT-4</li>
-                <li>時區: 台灣標準時間 (TST)</li>
-              </ul>
-            </div>
+
+            {/* Financial Calendar */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  財經日曆
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div>
+                    <FinancialCalendar />
+                  </div>
+                  <div>
+                    <EconomicCalendarWidget height="300" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-          <div className="border-t border-gray-200 mt-8 pt-6 text-center text-sm text-gray-500">
-            <p>&copy; 2024 投資研究平台. 僅供研究參考，不構成投資建議。</p>
+
+          {/* Right Sidebar - Macro Economic Data (1/4 width) */}
+          <div className="xl:col-span-1 space-y-4">
+            <Card className="sticky top-20">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">宏觀經濟數據</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  即時經濟指標與重要數據
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                
+                {/* Market Data Widgets */}
+                <SidebarMarketDataWidget market={activeMarket} />
+                
+                {/* Key Economic Indicators */}
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm text-gray-700">重要指標</h4>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center p-3 bg-white rounded-lg border">
+                      <div>
+                        <p className="text-sm font-medium">CPI 年增率</p>
+                        <p className="text-xs text-gray-500">消費者物價指數</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold">3.2%</p>
+                        <div className="flex items-center text-xs text-green-600">
+                          <TrendingUp className="w-3 h-3 mr-1" />
+                          +0.1%
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center p-3 bg-white rounded-lg border">
+                      <div>
+                        <p className="text-sm font-medium">
+                          {activeMarket === "taiwan" ? "央行利率" : "聯準會利率"}
+                        </p>
+                        <p className="text-xs text-gray-500">基準利率</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold">
+                          {activeMarket === "taiwan" ? "1.875%" : "5.25%"}
+                        </p>
+                        <div className="flex items-center text-xs text-gray-500">
+                          <span>持平</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center p-3 bg-white rounded-lg border">
+                      <div>
+                        <p className="text-sm font-medium">黃金價格</p>
+                        <p className="text-xs text-gray-500">每盎司美元</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold">$2,031</p>
+                        <div className="flex items-center text-xs text-red-600">
+                          <TrendingDown className="w-3 h-3 mr-1" />
+                          -0.8%
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center p-3 bg-white rounded-lg border">
+                      <div>
+                        <p className="text-sm font-medium">美元指數</p>
+                        <p className="text-xs text-gray-500">DXY</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold">104.25</p>
+                        <div className="flex items-center text-xs text-green-600">
+                          <TrendingUp className="w-3 h-3 mr-1" />
+                          +0.3%
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Actions */}
+                <div className="space-y-2 pt-4 border-t">
+                  <h4 className="font-medium text-sm text-gray-700">快速操作</h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    <Button variant="outline" size="sm" className="w-full justify-start">
+                      <ChartBar className="w-4 h-4 mr-2" />
+                      數據分析
+                    </Button>
+                    <Button variant="outline" size="sm" className="w-full justify-start">
+                      <Calendar className="w-4 h-4 mr-2" />
+                      設定提醒
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
-      </footer>
+
+        {/* Bottom Section - Detailed Stock Information */}
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>個股詳細資訊</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              點擊上方監控清單中的股票查看詳細圖表
+            </p>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* This section will be populated with individual stock charts */}
+            {(activeMarket === "taiwan" ? 
+              [
+                { symbol: "TPE:2330", name: "台積電", price: "NT$598", change: "+1.2%" },
+                { symbol: "TPE:2454", name: "聯發科", price: "NT$742", change: "-0.8%" },
+                { symbol: "TPE:2317", name: "鴻海", price: "NT$106", change: "+2.1%" }
+              ] : 
+              [
+                { symbol: "NASDAQ:AAPL", name: "Apple Inc.", price: "$175.43", change: "+0.9%" },
+                { symbol: "NASDAQ:MSFT", name: "Microsoft", price: "$378.85", change: "+1.2%" },
+                { symbol: "NASDAQ:GOOGL", name: "Alphabet", price: "$138.21", change: "-0.3%" }
+              ]
+            ).map((stock, index) => (
+              <Card 
+                key={index} 
+                className="cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => setSelectedStock(stock.symbol)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-medium">{stock.name}</h4>
+                    <Badge variant={stock.change.startsWith('+') ? 'default' : 'destructive'}>
+                      {stock.change}
+                    </Badge>
+                  </div>
+                  <p className="text-2xl font-bold">{stock.price}</p>
+                  <p className="text-sm text-gray-500">{stock.symbol}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </CardContent>
+        </Card>
+      </main>
     </div>
   );
 }
