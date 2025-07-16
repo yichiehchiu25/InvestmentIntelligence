@@ -179,9 +179,23 @@ export function AdvancedChartWidget({
   );
 }
 
-// Watchlist Widget
+// Enhanced Watchlist Widget with Custom Symbols Support
 export function WatchlistWidget({ height = "400", theme = "light", market = "us" }: TradingViewWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [customWatchlist, setCustomWatchlist] = useState<any[]>([]);
+
+  // Load custom watchlist from localStorage
+  useEffect(() => {
+    const savedWatchlist = localStorage.getItem(`watchlist_${market}`);
+    if (savedWatchlist) {
+      try {
+        const parsed = JSON.parse(savedWatchlist);
+        setCustomWatchlist(parsed);
+      } catch (error) {
+        console.error("Error loading custom watchlist:", error);
+      }
+    }
+  }, [market]);
 
   useEffect(() => {
     if (containerRef.current) {
@@ -191,10 +205,63 @@ export function WatchlistWidget({ height = "400", theme = "light", market = "us"
       script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-market-quotes.js';
       script.async = true;
       
-      const config = {
-        "width": "100%",
-        "height": height,
-        "symbolsGroups": market === "taiwan" ? [
+      // Build symbols groups based on custom watchlist or defaults
+      let symbolsGroups;
+      
+      if (customWatchlist.length > 0) {
+        // Use custom watchlist
+        const customSymbols = customWatchlist.map(stock => ({
+          name: stock.symbol,
+          displayName: stock.displayName
+        }));
+        
+        symbolsGroups = [
+          {
+            name: market === "taiwan" ? "我的台股追蹤" : "我的美股追蹤",
+            originalName: "My Custom Watchlist",
+            symbols: customSymbols
+          }
+        ];
+        
+        // Add indices as second group
+        if (market === "taiwan") {
+          symbolsGroups.unshift({
+            name: "台股指數",
+            originalName: "Taiwan Indices",
+            symbols: [
+              {
+                name: "TVC:TWII",
+                displayName: "台灣加權指數"
+              },
+              {
+                name: "TVC:TX1!",
+                displayName: "台指期"
+              }
+            ]
+          });
+        } else {
+          symbolsGroups.unshift({
+            name: "美股指數",
+            originalName: "US Indices",
+            symbols: [
+              {
+                name: "FOREXCOM:SPXUSD",
+                displayName: "S&P 500"
+              },
+              {
+                name: "FOREXCOM:NSXUSD",
+                displayName: "US 100"
+              },
+              {
+                name: "FOREXCOM:DJI",
+                displayName: "Dow 30"
+              }
+            ]
+          });
+        }
+      } else {
+        // Use default symbols
+        symbolsGroups = market === "taiwan" ? [
           {
             "name": "台股指數",
             "originalName": "Taiwan Indices",
@@ -268,7 +335,13 @@ export function WatchlistWidget({ height = "400", theme = "light", market = "us"
               }
             ]
           }
-        ],
+        ];
+      }
+      
+      const config = {
+        "width": "100%",
+        "height": height,
+        "symbolsGroups": symbolsGroups,
         "showSymbolLogo": true,
         "colorTheme": theme,
         "isTransparent": false,
@@ -278,7 +351,7 @@ export function WatchlistWidget({ height = "400", theme = "light", market = "us"
       script.innerHTML = JSON.stringify(config);
       containerRef.current.appendChild(script);
     }
-  }, [market, height, theme]);
+  }, [market, height, theme, customWatchlist]);
 
   return (
     <div className="tradingview-widget-container" ref={containerRef}>
