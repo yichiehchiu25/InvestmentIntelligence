@@ -9,6 +9,7 @@ import { schedulerService } from "./services/schedulerService";
 import { fileStorageService } from "./services/fileStorageService";
 import { yahooFinanceService } from "./services/yahooFinanceService";
 import { insertNewsArticleSchema, insertCalendarEventSchema, insertSystemConfigSchema } from "@shared/schema";
+import { taiwanStockService } from "./services/taiwanStockService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize services
@@ -92,6 +93,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(data);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch Taiwan indices" });
+    }
+  });
+
+  // Enhanced Taiwan Stock Service API Routes
+  app.get("/api/taiwan-stocks/market-status", async (req, res) => {
+    try {
+      const status = taiwanStockService.getTaiwanMarketStatus();
+      res.json(status);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get market status" });
+    }
+  });
+
+  app.get("/api/taiwan-stocks/stock/:stockId", async (req, res) => {
+    try {
+      const { stockId } = req.params;
+      const data = await taiwanStockService.getStockData(stockId);
+      if (!data) {
+        return res.status(404).json({ error: "Stock data not found" });
+      }
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch stock data" });
+    }
+  });
+
+  app.post("/api/taiwan-stocks/multiple", async (req, res) => {
+    try {
+      const { stockIds } = req.body;
+      if (!stockIds || !Array.isArray(stockIds)) {
+        return res.status(400).json({ error: "stockIds array is required" });
+      }
+      const data = await taiwanStockService.getMultipleStocks(stockIds);
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch multiple stocks data" });
+    }
+  });
+
+  app.get("/api/taiwan-stocks/popular", async (req, res) => {
+    try {
+      const stockIds = taiwanStockService.getPopularTaiwanStocks();
+      const data = await taiwanStockService.getMultipleStocks(stockIds);
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch popular Taiwan stocks" });
+    }
+  });
+
+  // News Keywords Management API Routes
+  app.get("/api/news/keywords", async (req, res) => {
+    try {
+      const savedKeywords = await fileStorageService.readFile('news-keywords.json');
+      if (savedKeywords) {
+        res.json(JSON.parse(savedKeywords));
+      } else {
+        res.json([]);
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch keywords" });
+    }
+  });
+
+  app.post("/api/news/keywords", async (req, res) => {
+    try {
+      const { keywords } = req.body;
+      if (!keywords || !Array.isArray(keywords)) {
+        return res.status(400).json({ error: "keywords array is required" });
+      }
+      
+      await fileStorageService.saveFile('news-keywords.json', JSON.stringify(keywords, null, 2));
+      res.json({ message: "Keywords saved successfully", keywords });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to save keywords" });
+    }
+  });
+
+  app.post("/api/news/scrape-with-keywords", async (req, res) => {
+    try {
+      const { keywords, categories } = req.body;
+      
+      // Use custom keywords if provided, otherwise use defaults
+      if (keywords && Array.isArray(keywords)) {
+        // Extract unique keywords for search
+        const activeKeywords = keywords
+          .filter((k: any) => k.isActive)
+          .map((k: any) => k.keyword);
+        
+        if (activeKeywords.length > 0) {
+          await newsService.searchGoogleNews(activeKeywords, 20);
+        }
+      }
+      
+      // Also run regular news scraping
+      await newsService.scrapeNews();
+      
+      const news = await newsService.getNews(50);
+      res.json({ message: "News scraping with keywords completed", articles: news.length });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to scrape news with keywords" });
     }
   });
 

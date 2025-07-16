@@ -1,6 +1,8 @@
 import { AppHeader } from "@/components/AppHeader";
 import { FinancialCalendar } from "@/components/FinancialCalendar";
 import { NewsAggregationPanel } from "@/components/NewsAggregationPanel";
+import { StockWatchlistManager } from "@/components/StockWatchlistManager";
+import { NewsKeywordManager } from "@/components/NewsKeywordManager";
 import { 
   MarketOverviewWidget, 
   AdvancedChartWidget, 
@@ -12,11 +14,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Calendar, ChartBar } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TrendingUp, TrendingDown, Calendar, ChartBar, Settings, Star } from "lucide-react";
 
 export default function Dashboard() {
   const [activeMarket, setActiveMarket] = useState<"taiwan" | "us">("taiwan");
   const [selectedStock, setSelectedStock] = useState("NASDAQ:AAPL");
+  const [showSettings, setShowSettings] = useState(false);
 
   // Listen for market switch events from header
   useEffect(() => {
@@ -231,12 +235,59 @@ export default function Dashboard() {
                       <Calendar className="w-4 h-4 mr-2" />
                       設定提醒
                     </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full justify-start"
+                      onClick={() => setShowSettings(!showSettings)}
+                    >
+                      <Settings className="w-4 h-4 mr-2" />
+                      管理設定
+                    </Button>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
         </div>
+
+        {/* Settings Panel */}
+        {showSettings && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                系統設定與管理
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                管理您的股票追蹤清單和新聞關鍵字設定
+              </p>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="watchlist" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="watchlist" className="flex items-center gap-2">
+                    <Star className="h-4 w-4" />
+                    追蹤清單管理
+                  </TabsTrigger>
+                  <TabsTrigger value="keywords" className="flex items-center gap-2">
+                    <Settings className="h-4 w-4" />
+                    新聞關鍵字管理
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="watchlist" className="mt-6">
+                  <StockWatchlistManager 
+                    currentMarket={activeMarket}
+                    onStockSelect={setSelectedStock}
+                  />
+                </TabsContent>
+                <TabsContent value="keywords" className="mt-6">
+                  <NewsKeywordManager />
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Bottom Section - Detailed Stock Information */}
         <Card className="mt-6">
