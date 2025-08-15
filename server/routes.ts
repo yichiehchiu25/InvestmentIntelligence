@@ -5,6 +5,8 @@ import { newsService } from "./services/newsService";
 import { economicDataService } from "./services/economicDataService";
 import { aiService } from "./services/aiService";
 import { calendarService } from "./services/calendarService";
+import { enhancedNewsService } from "./services/enhancedNewsService";
+import { enhancedAIService } from "./services/enhancedAIService";
 import { schedulerService } from "./services/schedulerService";
 import { fileStorageService } from "./services/fileStorageService";
 import { yahooFinanceService } from "./services/yahooFinanceService";
@@ -266,6 +268,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "News search completed successfully" });
     } catch (error) {
       res.status(500).json({ error: "Failed to search news" });
+    }
+  });
+
+  // Enhanced News API
+  app.post("/api/news/enhanced-scrape", async (req, res) => {
+    try {
+      const result = await enhancedNewsService.scrapeEnhancedNews();
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to scrape enhanced news" });
+    }
+  });
+
+  // Professional AI Analysis API
+  app.post("/api/ai-summaries/professional", async (req, res) => {
+    try {
+      const { limit } = req.body;
+      const news = await newsService.getNews(limit || 20);
+      const analysis = await enhancedAIService.generatePerplexityStyleSummary(news);
+      
+      // Save the analysis
+      await enhancedAIService.saveProfessionalAnalysis(analysis);
+      
+      res.json(analysis);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to generate professional analysis" });
+    }
+  });
+
+  // Get Today's Professional Analysis
+  app.get("/api/ai-summaries/professional/today", async (req, res) => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const summary = await storage.getAiSummaryByDate(today, "專業分析");
+      
+      if (summary) {
+        const analysis = JSON.parse(summary.content);
+        res.json(analysis);
+      } else {
+        // Generate new analysis if none exists
+        const news = await newsService.getNews(20);
+        const analysis = await enhancedAIService.generatePerplexityStyleSummary(news);
+        await enhancedAIService.saveProfessionalAnalysis(analysis);
+        res.json(analysis);
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch today's professional analysis" });
     }
   });
 
