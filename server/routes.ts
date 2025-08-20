@@ -487,3 +487,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   return httpServer;
 }
+
+import { realNewsService } from "./services/realNewsService";
+import { earningsApiService } from "./services/earningsApiService";
+
+// 真實新聞抓取API
+app.post("/api/news/real-scrape", async (req, res) => {
+  try {
+    const result = await realNewsService.scrapeRealNews();
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to scrape real news" });
+  }
+});
+
+// 真實Earnings API
+app.post("/api/earnings/update", async (req, res) => {
+  try {
+    await earningsApiService.updateEarningsCalendar();
+    const earnings = await earningsApiService.getWeeklyEarnings();
+    res.json({ success: true, data: earnings });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update earnings" });
+  }
+});
+
+app.get("/api/earnings/weekly", async (req, res) => {
+  try {
+    const earnings = await earningsApiService.getWeeklyEarnings();
+    res.json(earnings);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch earnings" });
+  }
+});
