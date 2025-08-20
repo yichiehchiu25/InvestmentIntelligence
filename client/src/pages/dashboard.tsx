@@ -1,8 +1,11 @@
 import { AppHeader } from "@/components/AppHeader";
 import { FinancialCalendar } from "@/components/FinancialCalendar";
+import { EarningsHubCalendar } from "@/components/EarningsHubCalendar";
 import { NewsAggregationPanel } from "@/components/NewsAggregationPanel";
+import { EnhancedNewsPanel } from "@/components/EnhancedNewsPanel";
 import { StockWatchlistManager } from "@/components/StockWatchlistManager";
 import { NewsKeywordManager } from "@/components/NewsKeywordManager";
+import { TradingViewSymbolSearch } from "@/components/TradingViewSymbolSearch";
 import { 
   MarketOverviewWidget, 
   AdvancedChartWidget, 
@@ -15,12 +18,13 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TrendingUp, TrendingDown, Calendar, ChartBar, Settings, Star } from "lucide-react";
+import { TrendingUp, TrendingDown, Calendar, ChartBar, Settings, Star, Plus } from "lucide-react";
 
 export default function Dashboard() {
   const [activeMarket, setActiveMarket] = useState<"taiwan" | "us">("taiwan");
   const [selectedStock, setSelectedStock] = useState("NASDAQ:AAPL");
   const [showSettings, setShowSettings] = useState(false);
+  const [showSymbolSearch, setShowSymbolSearch] = useState(false);
 
   // Listen for market switch events from header
   useEffect(() => {
@@ -98,23 +102,29 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               
               {/* News Board / Market Summary (Left - Green section) */}
-              <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-                <CardHeader>
-                  <CardTitle className="text-green-800">新聞摘要 / 市場總結</CardTitle>
-                  <p className="text-green-600 text-sm">AI整理的今日重點新聞與市場動態</p>
-                </CardHeader>
-                <CardContent>
-                  <NewsAggregationPanel />
-                </CardContent>
-              </Card>
+              <div className="bg-gradient-to-br from-green-50 to-green-100 p-1 rounded-lg border border-green-200">
+                <EnhancedNewsPanel />
+              </div>
 
               {/* Stocks Watchlist (Right - Blue section) */}
               <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
                 <CardHeader>
-                  <CardTitle className="text-blue-800">
-                    關注股票清單 ({activeMarket === "taiwan" ? "台股" : "美股"})
-                  </CardTitle>
-                  <p className="text-blue-600 text-sm">從TradingView監控清單顯示</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-blue-800">
+                        關注股票清單 ({activeMarket === "taiwan" ? "台股" : "美股"})
+                      </CardTitle>
+                      <p className="text-blue-600 text-sm">從TradingView監控清單顯示</p>
+                    </div>
+                    <Button 
+                      onClick={() => setShowSymbolSearch(true)}
+                      size="sm"
+                      className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      加入其他追蹤標的
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="p-0">
                   <WatchlistWidget height="400" market={activeMarket} />
@@ -122,23 +132,10 @@ export default function Dashboard() {
               </Card>
             </div>
 
-            {/* Financial Calendar */}
+            {/* Earnings Hub Calendar */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  財經日曆
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div>
-                    <FinancialCalendar />
-                  </div>
-                  <div>
-                    <EconomicCalendarWidget height="300" />
-                  </div>
-                </div>
+              <CardContent className="p-6">
+                <EarningsHubCalendar />
               </CardContent>
             </Card>
           </div>
@@ -331,6 +328,16 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </main>
+
+      {/* TradingView Symbol Search Dialog */}
+      <TradingViewSymbolSearch
+        isOpen={showSymbolSearch}
+        onClose={() => setShowSymbolSearch(false)}
+        market={activeMarket}
+        onSymbolAdd={(symbol, displayName) => {
+          console.log("Added symbol:", symbol, displayName);
+        }}
+      />
     </div>
   );
 }

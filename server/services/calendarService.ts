@@ -4,6 +4,53 @@ import type { InsertCalendarEvent } from "@shared/schema";
 export class CalendarService {
   async initializeCalendarEvents(): Promise<void> {
     const events: InsertCalendarEvent[] = [
+      // This week's events (January 13-17, 2025)
+      {
+        title: "美國CPI數據發布",
+        description: "12月消費者物價指數(YoY: 2.9%預期)",
+        date: "2025-01-15",
+        time: "21:30 (台灣標準時間)",
+        category: "經濟數據",
+        importance: "high",
+        source: "美國勞工統計局"
+      },
+      {
+        title: "美國PPI數據發布", 
+        description: "12月生產者物價指數",
+        date: "2025-01-14",
+        time: "21:30 (台灣標準時間)",
+        category: "經濟數據",
+        importance: "medium",
+        source: "美國勞工統計局"
+      },
+      {
+        title: "Fed會議紀要發布",
+        description: "12月FOMC會議詳細紀要",
+        date: "2025-01-14",
+        time: "03:00 (台灣標準時間)",
+        category: "央行會議",
+        importance: "high",
+        source: "Federal Reserve"
+      },
+      {
+        title: "美國零售銷售數據",
+        description: "12月零售銷售月增率",
+        date: "2025-01-16",
+        time: "21:30 (台灣標準時間)",
+        category: "經濟數據",
+        importance: "high",
+        source: "美國商務部"
+      },
+      {
+        title: "歐洲央行利率決議",
+        description: "ECB利率政策會議",
+        date: "2025-01-16",
+        time: "20:15 (台灣標準時間)",
+        category: "央行會議",
+        importance: "high",
+        source: "European Central Bank"
+      },
+      // Legacy events for backward compatibility
       {
         title: "台積電法說會",
         description: "Q4財報發布與未來展望說明",
@@ -21,42 +68,6 @@ export class CalendarService {
         category: "央行會議",
         importance: "high",
         source: "Federal Reserve"
-      },
-      {
-        title: "Apple發表會",
-        description: "新產品發表會，預期影響科技股表現",
-        date: "2024-12-25",
-        time: "02:00 (台灣標準時間)",
-        category: "產品發表",
-        importance: "medium",
-        source: "Apple Inc."
-      },
-      {
-        title: "台灣央行理監事會議",
-        description: "第4季利率政策決策會議",
-        date: "2024-12-19",
-        time: "14:30 (台灣標準時間)",
-        category: "央行會議",
-        importance: "high",
-        source: "中央銀行"
-      },
-      {
-        title: "美國就業數據發布",
-        description: "11月非農就業人口變化",
-        date: "2024-12-22",
-        time: "21:30 (台灣標準時間)",
-        category: "經濟數據",
-        importance: "high",
-        source: "美國勞工部"
-      },
-      {
-        title: "Google Gemini發表會",
-        description: "AI技術更新與產品發布",
-        date: "2024-12-28",
-        time: "01:00 (台灣標準時間)",
-        category: "產品發表",
-        importance: "medium",
-        source: "Google"
       }
     ];
 
