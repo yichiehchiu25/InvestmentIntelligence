@@ -269,6 +269,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Enhanced News API - 新增增強型新聞API
+  app.get("/api/news/watchlist", async (req, res) => {
+    try {
+      const { symbols, limit = 50 } = req.query;
+      if (!symbols) {
+        return res.status(400).json({ error: "Symbols parameter is required" });
+      }
+      
+      const symbolArray = Array.isArray(symbols) ? symbols : [symbols];
+      const news = await newsService.getNewsForWatchlist(symbolArray as string[], Number(limit));
+      res.json(news);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch watchlist news" });
+    }
+  });
+
+  app.get("/api/news/sentiment", async (req, res) => {
+    try {
+      const sentiment = await newsService.getMarketSentiment();
+      res.json(sentiment);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch market sentiment" });
+    }
+  });
+
+  app.post("/api/news/enhanced-scrape", async (req, res) => {
+    try {
+      const result = await newsService.scrapeNews();
+      res.json({ 
+        message: "Enhanced news scraping completed successfully",
+        ...result
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to perform enhanced news scraping" });
+    }
+  });
+
   // AI Summaries
   app.get("/api/ai-summaries", async (req, res) => {
     try {
@@ -301,22 +338,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/ai-summaries/today", async (req, res) => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      const summaries = await storage.getAiSummaries();
-      const todaySummaries = summaries.filter(s => s.date === today);
-      
-      if (todaySummaries.length > 0) {
-        // Return the most comprehensive summary for today
-        const mainSummary = todaySummaries.find(s => s.category === "總體經濟") || todaySummaries[0];
-        res.json(mainSummary);
-      } else {
-        res.json({ 
-          content: "今日AI分析摘要正在生成中，請稍後查看。",
-          newsCount: 0,
-          date: today 
-        });
-      }
+      const summary = await storage.getAiSummaryByDate(today, "5大市場分析");
+      res.json(summary);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch today's AI summary" });
+    }
+  });
+
+  // 5大市場分析 API
+  app.get("/api/ai-summaries/top5-market", async (req, res) => {
+    try {
+      const { date } = req.query;
+      const targetDate = (date as string) || new Date().toISOString().split('T')[0];
+      
+      const summaries = await aiService.generateTop5MarketSummaries(targetDate);
+      res.json(summaries);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to generate top 5 market summaries" });
+    }
+  });
+
+  app.post("/api/ai-summaries/generate-top5", async (req, res) => {
+    try {
+      const { date } = req.body;
+      const targetDate = date || new Date().toISOString().split('T')[0];
+      
+      const summaries = await aiService.generateTop5MarketSummaries(targetDate);
+      res.json({ 
+        message: "Top 5 market summaries generated successfully",
+        summaries,
+        count: summaries.length
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to generate top 5 market summaries" });
     }
   });
 

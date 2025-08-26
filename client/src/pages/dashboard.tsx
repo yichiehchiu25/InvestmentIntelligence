@@ -8,7 +8,8 @@ import {
   AdvancedChartWidget, 
   WatchlistWidget,
   SidebarMarketDataWidget,
-  EconomicCalendarWidget
+  EconomicCalendarWidget,
+  TradingViewSymbolSearch
 } from "@/components/TradingViewWidgets";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState, useEffect } from "react";
