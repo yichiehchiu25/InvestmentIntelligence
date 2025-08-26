@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, CalendarPlus, ChevronLeft, ChevronRight, Building, University, TrendingUp, BarChart3, DollarSign, Clock } from "lucide-react";
 import type { CalendarEvent } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
 
 interface EarningsEvent {
   symbol: string;
@@ -33,23 +34,17 @@ export function FinancialCalendar() {
     queryKey: ["/api/calendar-events/upcoming"],
   });
 
-  // Mock earnings data - 實際應用中應從API獲取
-  const mockEarnings: EarningsEvent[] = [
-    { symbol: "AAPL", companyName: "Apple Inc.", earningsTime: "after-market", date: "2025-01-28", expectedEPS: "$2.18", marketCap: "$3.5T" },
-    { symbol: "MSFT", companyName: "Microsoft Corp.", earningsTime: "after-market", date: "2025-01-29", expectedEPS: "$3.12", marketCap: "$3.1T" },
-    { symbol: "GOOGL", companyName: "Alphabet Inc.", earningsTime: "after-market", date: "2025-01-30", expectedEPS: "$1.85", marketCap: "$2.1T" },
-    { symbol: "AMZN", companyName: "Amazon.com Inc.", earningsTime: "after-market", date: "2025-01-31", expectedEPS: "$1.48", marketCap: "$1.8T" },
-    { symbol: "TSLA", companyName: "Tesla Inc.", earningsTime: "after-market", date: "2025-02-01", expectedEPS: "$0.88", marketCap: "$1.1T" },
-  ];
+  // 從API獲取真實財報數據
+  const { data: earnings, isLoading: earningsLoading } = useQuery<EarningsEvent[]>({
+    queryKey: ["/api/earnings/upcoming"],
+    staleTime: 30 * 60 * 1000, // 30分鐘快取
+  });
 
-  // Mock economic events
-  const mockEconomicEvents: EconomicEvent[] = [
-    { title: "聯準會利率決議", date: "2025-01-29", time: "02:00", importance: "high", country: "US", forecast: "5.25%" },
-    { title: "美國GDP (第四季)", date: "2025-01-30", time: "21:30", importance: "high", country: "US", previous: "2.8%", forecast: "3.1%" },
-    { title: "美國CPI年增率", date: "2025-01-31", time: "21:30", importance: "high", country: "US", previous: "2.6%", forecast: "2.9%" },
-    { title: "美國非農就業人數", date: "2025-02-01", time: "21:30", importance: "high", country: "US", previous: "256K", forecast: "180K" },
-    { title: "美國失業率", date: "2025-02-01", time: "21:30", importance: "high", country: "US", previous: "4.1%", forecast: "4.2%" },
-  ];
+  // 從API獲取經濟事件數據
+  const { data: economicEvents, isLoading: economicLoading } = useQuery<EconomicEvent[]>({
+    queryKey: ["/api/economic-events/upcoming"],
+    staleTime: 60 * 60 * 1000, // 1小時快取
+  });
 
   const getEarningsTimeColor = (earningsTime: string) => {
     switch (earningsTime) {
@@ -112,7 +107,7 @@ export function FinancialCalendar() {
     };
   };
 
-  if (isLoading) {
+  if (isLoading || earningsLoading || economicLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-48" />
@@ -163,9 +158,9 @@ export function FinancialCalendar() {
                 本週企業財報發布
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {mockEarnings.map((earning, index) => {
+                         <CardContent>
+               <div className="space-y-4">
+                 {(earnings || []).map((earning, index) => {
                   const dateInfo = formatDate(earning.date);
                   return (
                     <div key={index} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
@@ -207,9 +202,9 @@ export function FinancialCalendar() {
                 重要經濟數據發布
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {mockEconomicEvents.map((event, index) => {
+                         <CardContent>
+               <div className="space-y-4">
+                 {(economicEvents || []).map((event, index) => {
                   const dateInfo = formatDate(event.date);
                   return (
                     <div key={index} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">

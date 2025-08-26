@@ -2,10 +2,14 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { newsService } from "./services/newsService";
+import { enhancedNewsService } from "./services/enhancedNewsService";
+import { earningsService } from "./services/earningsService";
 import { economicDataService } from "./services/economicDataService";
 import { aiService } from "./services/aiService";
 import { calendarService } from "./services/calendarService";
 import { schedulerService } from "./services/schedulerService";
+import { scheduledTasksService } from "./services/scheduledTasksService";
+import { cacheService } from "./services/cacheService";
 import { fileStorageService } from "./services/fileStorageService";
 import { yahooFinanceService } from "./services/yahooFinanceService";
 import { insertNewsArticleSchema, insertCalendarEventSchema, insertSystemConfigSchema } from "@shared/schema";
@@ -15,6 +19,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize services
   await calendarService.initializeCalendarEvents();
   schedulerService.start();
+  
+  // 啟動新的定時任務服務
+  scheduledTasksService.startAllTasks();
+  
+  // 預載快取
+  await cacheService.preloadCache();
 
   // Economic Indicators
   app.get("/api/economic-indicators", async (req, res) => {
@@ -296,13 +306,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/news/enhanced-scrape", async (req, res) => {
     try {
-      const result = await newsService.scrapeNews();
+      const result = await enhancedNewsService.scrapeAllNews();
       res.json({ 
         message: "Enhanced news scraping completed successfully",
         ...result
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to perform enhanced news scraping" });
+    }
+  });
+
+  // Earnings API - 財報數據API (帶快取)
+  app.get("/api/earnings/upcoming", async (req, res) => {
+    try {
+      const { days = 7 } = req.query;
+      const cacheKey = `earnings:upcoming:${days}`;
+      
+      const earnings = await cacheService.getOrSet(
+        cacheKey,
+        () => earningsService.getUpcomingEarnings(Number(days)),
+        4 * 60 * 60, // 4小時快取
+        'financial_modeling_prep'
+      );
+      
+      res.json(earnings);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch upcoming earnings" });
+    }
+  });
+
+  // Economic Events API - 經濟事件API (帶快取)
+  app.get("/api/economic-events/upcoming", async (req, res) => {
+    try {
+      const { days = 7 } = req.query;
+      const cacheKey = `economic:events:${days}`;
+      
+      const events = await cacheService.getOrSet(
+        cacheKey,
+        () => earningsService.getEconomicEvents(Number(days)),
+        12 * 60 * 60, // 12小時快取
+        'alpha_vantage'
+      );
+      
+      res.json(events);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch economic events" });
     }
   });
 
@@ -345,13 +393,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // 5大市場分析 API
+  // 5大市場分析 API (帶快取)
   app.get("/api/ai-summaries/top5-market", async (req, res) => {
     try {
       const { date } = req.query;
       const targetDate = (date as string) || new Date().toISOString().split('T')[0];
+      const cacheKey = `ai:top5:${targetDate}`;
       
-      const summaries = await aiService.generateTop5MarketSummaries(targetDate);
+      const summaries = await cacheService.getOrSet(
+        cacheKey,
+        () => aiService.generateTop5MarketSummaries(targetDate),
+        2 * 60 * 60, // 2小時快取
+        'openai'
+      );
+      
       res.json(summaries);
     } catch (error) {
       res.status(500).json({ error: "Failed to generate top 5 market summaries" });
@@ -574,3 +629,98 @@ app.get("/api/earnings/weekly", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch earnings" });
   }
 });
+
+// System Health and Monitoring APIs - 系統監控API
+app.get("/api/system/health", async (req, res) => {
+  try {
+    const health = {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      cache: cacheService.healthCheck(),
+      scheduledTasks: scheduledTasksService.healthCheck()
+    };
+    
+    res.json(health);
+  } catch (error) {
+    res.status(500).json({ error: "Health check failed" });
+  }
+});
+
+app.get("/api/system/cache/stats", async (req, res) => {
+  try {
+    const stats = cacheService.getStats();
+    const health = cacheService.healthCheck();
+    res.json({ stats, health });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to get cache stats" });
+  }
+});
+
+app.post("/api/system/cache/clear", async (req, res) => {
+  try {
+    const { pattern } = req.body;
+    if (pattern) {
+      const deletedCount = cacheService.deleteByPattern(pattern);
+      res.json({ message: `Cleared ${deletedCount} cache entries matching pattern: ${pattern}` });
+    } else {
+      cacheService.flushAll();
+      res.json({ message: "All cache cleared" });
+    }
+  } catch (error) {
+    res.status(500).json({ error: "Failed to clear cache" });
+  }
+});
+
+app.get("/api/system/tasks/status", async (req, res) => {
+  try {
+    const status = scheduledTasksService.getTasksStatus();
+    const nextRuns = scheduledTasksService.getNextRunTimes();
+    res.json({ status, nextRuns });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to get task status" });
+  }
+});
+
+app.post("/api/system/tasks/:taskName/run", async (req, res) => {
+  try {
+    const { taskName } = req.params;
+    const success = await scheduledTasksService.runTaskManually(taskName);
+    
+    if (success) {
+      res.json({ message: `Task ${taskName} executed successfully` });
+    } else {
+      res.status(400).json({ error: `Failed to execute task ${taskName}` });
+    }
+  } catch (error) {
+    res.status(500).json({ error: "Task execution failed" });
+  }
+});
+
+app.post("/api/system/tasks/:taskName/:action", async (req, res) => {
+  try {
+    const { taskName, action } = req.params;
+    let success = false;
+    
+    if (action === 'start') {
+      success = scheduledTasksService.startTask(taskName);
+    } else if (action === 'stop') {
+      success = scheduledTasksService.stopTask(taskName);
+    } else {
+      return res.status(400).json({ error: "Invalid action. Use 'start' or 'stop'" });
+    }
+    
+    if (success) {
+      res.json({ message: `Task ${taskName} ${action}ed successfully` });
+    } else {
+      res.status(400).json({ error: `Failed to ${action} task ${taskName}` });
+    }
+  } catch (error) {
+    res.status(500).json({ error: "Task control failed" });
+  }
+});
+
+const server = createServer(app);
+return server;
+}
