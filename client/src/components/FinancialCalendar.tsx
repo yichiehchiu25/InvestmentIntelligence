@@ -1,149 +1,321 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, CalendarPlus, ChevronLeft, ChevronRight, Building, University } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calendar, CalendarPlus, ChevronLeft, ChevronRight, Building, University, TrendingUp, BarChart3, DollarSign, Clock } from "lucide-react";
 import type { CalendarEvent } from "@shared/schema";
+
+interface EarningsEvent {
+  symbol: string;
+  companyName: string;
+  earningsTime: "before-market" | "after-market" | "during-market";
+  date: string;
+  expectedEPS?: string;
+  revenue?: string;
+  marketCap?: string;
+}
+
+interface EconomicEvent {
+  title: string;
+  date: string;
+  time: string;
+  importance: "high" | "medium" | "low";
+  country: string;
+  previous?: string;
+  forecast?: string;
+  actual?: string;
+}
 
 export function FinancialCalendar() {
   const { data: events, isLoading } = useQuery<CalendarEvent[]>({
     queryKey: ["/api/calendar-events/upcoming"],
   });
 
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case "法說會":
-        return <Building className="text-primary" />;
-      case "央行會議":
-        return <University className="text-red-600" />;
-      case "產品發表":
-        return <Building className="text-green-600" />;
-      case "經濟數據":
-        return <Calendar className="text-blue-600" />;
-      default:
-        return <Calendar className="text-primary" />;
-    }
-  };
+  // Mock earnings data - 實際應用中應從API獲取
+  const mockEarnings: EarningsEvent[] = [
+    { symbol: "AAPL", companyName: "Apple Inc.", earningsTime: "after-market", date: "2025-01-28", expectedEPS: "$2.18", marketCap: "$3.5T" },
+    { symbol: "MSFT", companyName: "Microsoft Corp.", earningsTime: "after-market", date: "2025-01-29", expectedEPS: "$3.12", marketCap: "$3.1T" },
+    { symbol: "GOOGL", companyName: "Alphabet Inc.", earningsTime: "after-market", date: "2025-01-30", expectedEPS: "$1.85", marketCap: "$2.1T" },
+    { symbol: "AMZN", companyName: "Amazon.com Inc.", earningsTime: "after-market", date: "2025-01-31", expectedEPS: "$1.48", marketCap: "$1.8T" },
+    { symbol: "TSLA", companyName: "Tesla Inc.", earningsTime: "after-market", date: "2025-02-01", expectedEPS: "$0.88", marketCap: "$1.1T" },
+  ];
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case "法說會":
+  // Mock economic events
+  const mockEconomicEvents: EconomicEvent[] = [
+    { title: "聯準會利率決議", date: "2025-01-29", time: "02:00", importance: "high", country: "US", forecast: "5.25%" },
+    { title: "美國GDP (第四季)", date: "2025-01-30", time: "21:30", importance: "high", country: "US", previous: "2.8%", forecast: "3.1%" },
+    { title: "美國CPI年增率", date: "2025-01-31", time: "21:30", importance: "high", country: "US", previous: "2.6%", forecast: "2.9%" },
+    { title: "美國非農就業人數", date: "2025-02-01", time: "21:30", importance: "high", country: "US", previous: "256K", forecast: "180K" },
+    { title: "美國失業率", date: "2025-02-01", time: "21:30", importance: "high", country: "US", previous: "4.1%", forecast: "4.2%" },
+  ];
+
+  const getEarningsTimeColor = (earningsTime: string) => {
+    switch (earningsTime) {
+      case "before-market":
         return "bg-blue-100 text-blue-800";
-      case "央行會議":
-        return "bg-red-100 text-red-800";
-      case "產品發表":
-        return "bg-green-100 text-green-800";
-      case "經濟數據":
+      case "after-market":
         return "bg-purple-100 text-purple-800";
+      case "during-market":
+        return "bg-green-100 text-green-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
   };
 
+  const getEarningsTimeText = (earningsTime: string) => {
+    switch (earningsTime) {
+      case "before-market":
+        return "盤前";
+      case "after-market":
+        return "盤後";
+      case "during-market":
+        return "盤中";
+      default:
+        return "未定";
+    }
+  };
+
+  const getImportanceColor = (importance: string) => {
+    switch (importance) {
+      case "high":
+        return "bg-red-100 text-red-800";
+      case "medium":
+        return "bg-yellow-100 text-yellow-800";
+      case "low":
+        return "bg-green-100 text-green-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getImportanceText = (importance: string) => {
+    switch (importance) {
+      case "high":
+        return "高";
+      case "medium":
+        return "中";
+      case "low":
+        return "低";
+      default:
+        return "-";
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return {
+      month: date.getMonth() + 1,
+      day: date.getDate(),
+      weekday: date.toLocaleDateString("zh-TW", { weekday: "short" })
+    };
+  };
+
   if (isLoading) {
     return (
-      <section id="calendar" className="mb-12">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-semibold text-gray-900">財經日曆</h2>
-          <Skeleton className="h-10 w-32" />
-        </div>
-        <Card>
-          <CardContent className="p-0">
-            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-              <Skeleton className="h-6 w-32" />
-            </div>
-            <div className="divide-y divide-gray-200">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="px-6 py-4">
-                  <div className="flex items-start space-x-4">
-                    <Skeleton className="w-12 h-12 rounded-lg" />
-                    <div className="flex-grow">
-                      <Skeleton className="h-4 w-48 mb-2" />
-                      <Skeleton className="h-3 w-32 mb-1" />
-                      <Skeleton className="h-3 w-64" />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </section>
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-48" />
+        <Skeleton className="h-96 w-full" />
+      </div>
     );
   }
 
   return (
-    <section id="calendar" className="mb-12">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-semibold text-gray-900">財經日曆</h2>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">財經日曆</h2>
+          <p className="text-sm text-gray-600 mt-1">本週重要財報公布與經濟數據</p>
+        </div>
         <div className="flex items-center space-x-2">
-          <Button className="bg-primary hover:bg-blue-700">
-            <CalendarPlus className="h-4 w-4 mr-2" />
-            訂閱提醒
+          <Button variant="outline" size="sm">
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm font-medium">本週</span>
+          <Button variant="outline" size="sm">
+            <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-gray-900">
-                {new Date().toLocaleDateString("zh-TW", { 
-                  year: "numeric", 
-                  month: "long",
-                  timeZone: "Asia/Taipei"
-                })}
-              </h3>
-              <div className="flex items-center space-x-2">
-                <Button variant="ghost" size="icon">
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="sm">今天</Button>
-                <Button variant="ghost" size="icon">
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
+      <Tabs defaultValue="earnings" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="earnings" className="flex items-center gap-2">
+            <Building className="h-4 w-4" />
+            企業財報
+          </TabsTrigger>
+          <TabsTrigger value="economic" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            經濟數據
+          </TabsTrigger>
+          <TabsTrigger value="fed" className="flex items-center gap-2">
+            <University className="h-4 w-4" />
+            央行會議
+          </TabsTrigger>
+        </TabsList>
 
-          <div className="divide-y divide-gray-200">
-            {events?.map((event) => (
-              <div key={event.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
-                <div className="flex items-start space-x-4">
-                  <div className="flex-shrink-0">
-                    <div className="w-12 h-12 bg-primary bg-opacity-10 rounded-lg flex items-center justify-center">
-                      {getCategoryIcon(event.category)}
-                    </div>
-                  </div>
-                  <div className="flex-grow">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-medium text-gray-900">{event.title}</h4>
-                      <div className="flex items-center space-x-2">
-                        <Badge className={getCategoryColor(event.category)}>
-                          {event.category}
-                        </Badge>
-                        <span className="text-sm text-gray-500">
-                          {new Date(event.date).toLocaleDateString("zh-TW", { 
-                            month: "numeric", 
-                            day: "numeric",
-                            timeZone: "Asia/Taipei"
-                          })}
-                        </span>
+        <TabsContent value="earnings" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building className="h-5 w-5 text-blue-600" />
+                本週企業財報發布
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {mockEarnings.map((earning, index) => {
+                  const dateInfo = formatDate(earning.date);
+                  return (
+                    <div key={index} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center space-x-4">
+                        <div className="text-center min-w-[60px]">
+                          <div className="text-sm text-gray-500">{dateInfo.weekday}</div>
+                          <div className="text-lg font-bold">{dateInfo.month}/{dateInfo.day}</div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <span className="font-bold text-lg">{earning.symbol}</span>
+                            <Badge className={getEarningsTimeColor(earning.earningsTime)}>
+                              {getEarningsTimeText(earning.earningsTime)}
+                            </Badge>
+                          </div>
+                          <div className="text-gray-600">{earning.companyName}</div>
+                          <div className="text-sm text-gray-500 mt-1">
+                            市值: {earning.marketCap}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm text-gray-500">預期EPS</div>
+                          <div className="font-semibold">{earning.expectedEPS}</div>
+                        </div>
                       </div>
                     </div>
-                    <p className="text-sm text-gray-600 mt-1">{event.time}</p>
-                    {event.description && (
-                      <p className="text-xs text-gray-500 mt-1">{event.description}</p>
-                    )}
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="economic" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-green-600" />
+                重要經濟數據發布
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {mockEconomicEvents.map((event, index) => {
+                  const dateInfo = formatDate(event.date);
+                  return (
+                    <div key={index} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center space-x-4">
+                        <div className="text-center min-w-[60px]">
+                          <div className="text-sm text-gray-500">{dateInfo.weekday}</div>
+                          <div className="text-lg font-bold">{dateInfo.month}/{dateInfo.day}</div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <span className="font-semibold">{event.title}</span>
+                            <Badge className={getImportanceColor(event.importance)}>
+                              重要度: {getImportanceText(event.importance)}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center space-x-3 text-sm text-gray-600">
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {event.time}
+                            </span>
+                            <span>{event.country}</span>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4 text-right text-sm">
+                          {event.previous && (
+                            <div>
+                              <div className="text-gray-500">前值</div>
+                              <div className="font-medium">{event.previous}</div>
+                            </div>
+                          )}
+                          {event.forecast && (
+                            <div>
+                              <div className="text-gray-500">預期</div>
+                              <div className="font-medium">{event.forecast}</div>
+                            </div>
+                          )}
+                          {event.actual && (
+                            <div>
+                              <div className="text-gray-500">實際</div>
+                              <div className="font-bold text-green-600">{event.actual}</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="fed" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <University className="h-5 w-5 text-red-600" />
+                央行會議與貨幣政策
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 border rounded-lg bg-red-50 border-red-200">
+                  <div className="flex items-center space-x-4">
+                    <div className="text-center min-w-[60px]">
+                      <div className="text-sm text-gray-500">週三</div>
+                      <div className="text-lg font-bold">1/29</div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-semibold text-red-800 mb-1">聯邦公開市場委員會 (FOMC)</div>
+                      <div className="text-red-700">利率決議 & 政策聲明</div>
+                      <div className="text-sm text-red-600 mt-1">
+                        預期維持利率 5.25% - 5.50%
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm text-red-600">台北時間</div>
+                      <div className="font-bold text-red-800">02:00</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-4 border rounded-lg bg-blue-50 border-blue-200">
+                  <div className="flex items-center space-x-4">
+                    <div className="text-center min-w-[60px]">
+                      <div className="text-sm text-gray-500">週四</div>
+                      <div className="text-lg font-bold">1/30</div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-semibold text-blue-800 mb-1">Powell 記者會</div>
+                      <div className="text-blue-700">聯準會主席談話</div>
+                      <div className="text-sm text-blue-600 mt-1">
+                        經濟展望與政策說明
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm text-blue-600">台北時間</div>
+                      <div className="font-bold text-blue-800">02:30</div>
+                    </div>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    </section>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }

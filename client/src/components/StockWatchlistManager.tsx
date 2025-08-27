@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Minus, Star, Search, TrendingUp, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { TradingViewSymbolSearch } from "@/components/TradingViewWidgets";
 
 interface WatchlistStock {
   symbol: string;
@@ -84,6 +86,11 @@ export function StockWatchlistManager({ onStockSelect, currentMarket }: StockWat
   useEffect(() => {
     localStorage.setItem(`watchlist_${currentMarket}`, JSON.stringify(watchlist));
   }, [watchlist, currentMarket]);
+
+  // Handle TradingView symbol selection
+  const handleTradingViewSymbolSelect = (symbol: string, displayName: string) => {
+    addToWatchlist(symbol, displayName);
+  };
 
   const addToWatchlist = (symbol: string, displayName: string) => {
     const isAlreadyAdded = watchlist.some(stock => stock.symbol === symbol);
@@ -163,79 +170,105 @@ export function StockWatchlistManager({ onStockSelect, currentMarket }: StockWat
                 新增追蹤
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>新增股票到追蹤清單</DialogTitle>
               </DialogHeader>
               
-              <div className="space-y-4">
-                {/* 自定義輸入 */}
-                <div className="space-y-3 p-4 border rounded-lg">
-                  <h4 className="font-medium flex items-center gap-2">
-                    <Search className="h-4 w-4" />
-                    自定義股票
-                  </h4>
-                  <div className="space-y-2">
-                    <div>
-                      <Label htmlFor="stock-symbol">股票代號</Label>
-                      <Input
-                        id="stock-symbol"
-                        placeholder={currentMarket === "taiwan" ? "例如: 2330" : "例如: AAPL"}
-                        value={searchSymbol}
-                        onChange={(e) => setSearchSymbol(e.target.value)}
+              <Tabs defaultValue="tradingview" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="tradingview">TradingView搜尋</TabsTrigger>
+                  <TabsTrigger value="custom">自定義輸入</TabsTrigger>
+                  <TabsTrigger value="popular">熱門股票</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="tradingview" className="mt-4">
+                  <div className="space-y-3">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Search className="h-4 w-4" />
+                      從TradingView搜尋股票
+                    </h4>
+                    <p className="text-sm text-muted-foreground">
+                      在下方搜尋框中輸入股票代號或公司名稱，點選股票即可加入追蹤清單
+                    </p>
+                    <div className="border rounded-lg">
+                      <TradingViewSymbolSearch 
+                        market={currentMarket}
+                        onSymbolSelect={handleTradingViewSymbolSelect}
                       />
                     </div>
-                    <div>
-                      <Label htmlFor="stock-name">股票名稱</Label>
-                      <Input
-                        id="stock-name"
-                        placeholder={currentMarket === "taiwan" ? "例如: 台積電" : "例如: Apple Inc."}
-                        value={searchName}
-                        onChange={(e) => setSearchName(e.target.value)}
-                      />
-                    </div>
-                    <Button 
-                      onClick={addCustomStock}
-                      className="w-full"
-                      disabled={!searchSymbol.trim() || !searchName.trim()}
-                    >
-                      新增到追蹤清單
-                    </Button>
                   </div>
-                </div>
+                </TabsContent>
 
-                {/* 熱門股票快速新增 */}
-                <div className="space-y-3">
-                  <h4 className="font-medium flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4" />
-                    熱門股票
-                  </h4>
-                  <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
-                    {popularStocks[currentMarket].map((stock) => {
-                      const isAlreadyAdded = watchlist.some(w => w.symbol === stock.symbol);
-                      return (
-                        <Button
-                          key={stock.symbol}
-                          variant={isAlreadyAdded ? "secondary" : "outline"}
-                          className="justify-between h-auto p-3"
-                          onClick={() => addToWatchlist(stock.symbol, stock.name)}
-                          disabled={isAlreadyAdded}
-                        >
-                          <div className="text-left">
-                            <div className="font-medium">{stock.name}</div>
-                            <div className="text-sm text-muted-foreground">{stock.symbol}</div>
-                          </div>
-                          {isAlreadyAdded ? (
-                            <Badge variant="secondary">已追蹤</Badge>
-                          ) : (
-                            <Plus className="h-4 w-4" />
-                          )}
-                        </Button>
-                      );
-                    })}
+                <TabsContent value="custom" className="mt-4">
+                  <div className="space-y-3 p-4 border rounded-lg">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Search className="h-4 w-4" />
+                      自定義股票
+                    </h4>
+                    <div className="space-y-2">
+                      <div>
+                        <Label htmlFor="stock-symbol">股票代號</Label>
+                        <Input
+                          id="stock-symbol"
+                          placeholder={currentMarket === "taiwan" ? "例如: 2330" : "例如: AAPL"}
+                          value={searchSymbol}
+                          onChange={(e) => setSearchSymbol(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="stock-name">股票名稱</Label>
+                        <Input
+                          id="stock-name"
+                          placeholder={currentMarket === "taiwan" ? "例如: 台積電" : "例如: Apple Inc."}
+                          value={searchName}
+                          onChange={(e) => setSearchName(e.target.value)}
+                        />
+                      </div>
+                      <Button 
+                        onClick={addCustomStock}
+                        className="w-full"
+                        disabled={!searchSymbol.trim() || !searchName.trim()}
+                      >
+                        新增到追蹤清單
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </div>
+                </TabsContent>
+
+                <TabsContent value="popular" className="mt-4">
+                  <div className="space-y-3">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4" />
+                      熱門股票
+                    </h4>
+                    <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
+                      {popularStocks[currentMarket].map((stock) => {
+                        const isAlreadyAdded = watchlist.some(w => w.symbol === stock.symbol);
+                        return (
+                          <Button
+                            key={stock.symbol}
+                            variant={isAlreadyAdded ? "secondary" : "outline"}
+                            className="justify-between h-auto p-3"
+                            onClick={() => addToWatchlist(stock.symbol, stock.name)}
+                            disabled={isAlreadyAdded}
+                          >
+                            <div className="text-left">
+                              <div className="font-medium">{stock.name}</div>
+                              <div className="text-sm text-muted-foreground">{stock.symbol}</div>
+                            </div>
+                            {isAlreadyAdded ? (
+                              <Badge variant="secondary">已追蹤</Badge>
+                            ) : (
+                              <Plus className="h-4 w-4" />
+                            )}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
             </DialogContent>
           </Dialog>
         </div>

@@ -10,6 +10,61 @@ interface TradingViewWidgetProps {
   market?: "taiwan" | "us";
 }
 
+interface TradingViewSearchProps {
+  onSymbolSelect?: (symbol: string, name: string) => void;
+  market?: "taiwan" | "us";
+  theme?: "light" | "dark";
+}
+
+// TradingView Symbol Search Widget
+export function TradingViewSymbolSearch({ onSymbolSelect, market = "us", theme = "light" }: TradingViewSearchProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.innerHTML = '';
+      
+      const script = document.createElement('script');
+      script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-symbol-search.js';
+      script.async = true;
+      
+      const config = {
+        "width": "100%",
+        "height": "400",
+        "defaultCategory": market === "taiwan" ? "taiwan" : "stock",
+        "showPopupButton": false,
+        "locale": "zh_TW",
+        "largeChartUrl": "",
+        "isTransparent": false,
+        "colorTheme": theme
+      };
+
+      script.innerHTML = JSON.stringify(config);
+      containerRef.current.appendChild(script);
+
+      // Listen for symbol selection events from TradingView widget
+      const handleMessage = (event: MessageEvent) => {
+        if (event.data && event.data.name === 'tv-symbol-selected' && onSymbolSelect) {
+          const { symbol, displayName } = event.data;
+          onSymbolSelect(symbol, displayName);
+        }
+      };
+
+      window.addEventListener('message', handleMessage);
+      
+      return () => {
+        window.removeEventListener('message', handleMessage);
+      };
+    }
+  }, [market, theme, onSymbolSelect]);
+
+  return (
+    <div className="tradingview-widget-container" ref={containerRef}>
+      <div className="tradingview-widget-container__widget"></div>
+    </div>
+  );
+}
+
 // Market Overview Widget
 export function MarketOverviewWidget({ height = "400", theme = "light", market = "us" }: TradingViewWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
