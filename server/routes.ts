@@ -538,6 +538,211 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Stock Data API Routes
+
+  // Taiwan Stocks
+  app.get("/api/stocks/taiwan", async (req, res) => {
+    try {
+      const stocks = await storage.getTaiwanStocks();
+      res.json(stocks);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch Taiwan stocks" });
+    }
+  });
+
+  app.post("/api/stocks/taiwan/update", async (req, res) => {
+    try {
+      const { yahooFinanceService } = await import("./services/yahooFinanceService");
+      const taiwanStocks = yahooFinanceService.getTaiwanTop10Stocks();
+      const symbols = taiwanStocks.map(stock => stock.symbol);
+      
+      const quotes = await yahooFinanceService.getBatchQuotes(symbols);
+      const updatedStocks = [];
+
+      for (const quote of quotes) {
+        const stockInfo = taiwanStocks.find(s => s.symbol === quote.symbol);
+        if (!stockInfo) continue;
+
+        try {
+          const existing = await storage.getTaiwanStockBySymbol(quote.symbol);
+          let stock;
+          
+          if (existing) {
+            stock = await storage.updateTaiwanStock(quote.symbol, {
+              price: quote.price,
+              change: quote.change,
+              changePercent: quote.changePercent * 100, // Convert to percentage
+              volume: quote.volume,
+              marketCap: quote.marketCap,
+            });
+          } else {
+            stock = await storage.createTaiwanStock({
+              symbol: quote.symbol,
+              name: stockInfo.name,
+              nameEn: stockInfo.nameEn,
+              price: quote.price,
+              change: quote.change,
+              changePercent: quote.changePercent * 100,
+              volume: quote.volume,
+              marketCap: quote.marketCap,
+            });
+          }
+          updatedStocks.push(stock);
+        } catch (stockError) {
+          console.error(`Error updating Taiwan stock ${quote.symbol}:`, stockError);
+        }
+      }
+
+      res.json({ updated: updatedStocks.length, stocks: updatedStocks });
+    } catch (error) {
+      console.error("Error updating Taiwan stocks:", error);
+      res.status(500).json({ error: "Failed to update Taiwan stocks" });
+    }
+  });
+
+  // US Stock Portfolio
+  app.get("/api/stocks/portfolio", async (req, res) => {
+    try {
+      const portfolio = await storage.getUsStockPortfolio();
+      res.json(portfolio);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch US stock portfolio" });
+    }
+  });
+
+  app.post("/api/stocks/portfolio/update", async (req, res) => {
+    try {
+      const { yahooFinanceService } = await import("./services/yahooFinanceService");
+      const portfolioStocks = yahooFinanceService.getUsStockPortfolio();
+      const symbols = portfolioStocks.map(stock => stock.symbol);
+      
+      const quotes = await yahooFinanceService.getBatchQuotes(symbols);
+      const updatedStocks = [];
+
+      for (const quote of quotes) {
+        const stockInfo = portfolioStocks.find(s => s.symbol === quote.symbol);
+        if (!stockInfo) continue;
+
+        try {
+          const existing = await storage.getUsStockBySymbol(quote.symbol);
+          let stock;
+          
+          if (existing) {
+            stock = await storage.updateUsStockPortfolio(quote.symbol, {
+              price: quote.price,
+              change: quote.change,
+              changePercent: quote.changePercent * 100,
+              volume: quote.volume,
+              avgVolume: quote.averageDailyVolume3Month,
+            });
+          } else {
+            stock = await storage.createUsStockPortfolio({
+              symbol: quote.symbol,
+              name: stockInfo.name,
+              price: quote.price,
+              change: quote.change,
+              changePercent: quote.changePercent * 100,
+              volume: quote.volume,
+              weight: stockInfo.weight,
+              avgVolume: quote.averageDailyVolume3Month,
+            });
+          }
+          updatedStocks.push(stock);
+        } catch (stockError) {
+          console.error(`Error updating US stock ${quote.symbol}:`, stockError);
+        }
+      }
+
+      res.json({ updated: updatedStocks.length, stocks: updatedStocks });
+    } catch (error) {
+      console.error("Error updating US stock portfolio:", error);
+      res.status(500).json({ error: "Failed to update US stock portfolio" });
+    }
+  });
+
+  // Stock Watchlist
+  app.get("/api/stocks/watchlist", async (req, res) => {
+    try {
+      const watchlist = await storage.getStockWatchlist();
+      res.json(watchlist);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch stock watchlist" });
+    }
+  });
+
+  app.post("/api/stocks/watchlist", async (req, res) => {
+    try {
+      const { symbol, name, exchange } = req.body;
+      
+      if (!symbol || !name || !exchange) {
+        return res.status(400).json({ error: "Missing required fields: symbol, name, exchange" });
+      }
+
+      const { yahooFinanceService } = await import("./services/yahooFinanceService");
+      const quote = await yahooFinanceService.getQuote(symbol);
+      
+      if (!quote) {
+        return res.status(404).json({ error: `Stock data not found for symbol: ${symbol}` });
+      }
+
+      const stock = await storage.addToWatchlist({
+        symbol,
+        name,
+        exchange,
+        price: quote.price,
+        change: quote.change,
+        changePercent: quote.changePercent * 100,
+        volume: quote.volume,
+      });
+
+      res.json(stock);
+    } catch (error) {
+      console.error("Error adding to watchlist:", error);
+      res.status(500).json({ error: "Failed to add stock to watchlist" });
+    }
+  });
+
+  app.delete("/api/stocks/watchlist/:symbol", async (req, res) => {
+    try {
+      const { symbol } = req.params;
+      const removed = await storage.removeFromWatchlist(symbol);
+      
+      if (!removed) {
+        return res.status(404).json({ error: "Stock not found in watchlist" });
+      }
+
+      res.json({ message: "Stock removed from watchlist" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to remove stock from watchlist" });
+    }
+  });
+
+  // Stock Search
+  app.get("/api/stocks/search/:symbol", async (req, res) => {
+    try {
+      const { symbol } = req.params;
+      const { yahooFinanceService } = await import("./services/yahooFinanceService");
+      const quote = await yahooFinanceService.getQuote(symbol);
+      
+      if (!quote) {
+        return res.status(404).json({ error: `Stock data not found for symbol: ${symbol}` });
+      }
+
+      res.json({
+        symbol: quote.symbol,
+        name: quote.shortName || quote.longName,
+        price: quote.price,
+        change: quote.change,
+        changePercent: quote.changePercent * 100,
+        volume: quote.volume,
+        marketCap: quote.marketCap,
+      });
+    } catch (error) {
+      console.error(`Error searching for stock ${req.params.symbol}:`, error);
+      res.status(500).json({ error: "Failed to search for stock" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

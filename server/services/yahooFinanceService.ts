@@ -1,12 +1,15 @@
-import puppeteer from 'puppeteer';
+import fetch from 'node-fetch';
 
 export interface YahooFinanceData {
   symbol: string;
   name: string;
+  shortName?: string;
+  longName?: string;
   price: number;
   change: number;
   changePercent: number;
   volume?: number;
+  averageDailyVolume3Month?: number;
   marketCap?: string;
   lastUpdated: Date;
 }
@@ -17,102 +20,116 @@ export interface TaiwanMarketData {
   popularStocks: YahooFinanceData[];
 }
 
+interface YahooApiResponse {
+  quoteSummary?: {
+    result?: Array<{
+      price?: {
+        symbol?: string;
+        shortName?: string;
+        longName?: string;
+        regularMarketPrice?: { raw: number };
+        regularMarketChange?: { raw: number };
+        regularMarketChangePercent?: { raw: number };
+        regularMarketVolume?: { raw: number };
+        averageDailyVolume3Month?: { raw: number };
+        marketCap?: { raw: number };
+      };
+    }>;
+  };
+}
+
 class YahooFinanceService {
-  private browser: puppeteer.Browser | null = null;
+  private baseUrl = 'https://query1.finance.yahoo.com/v10/finance';
 
-  async initialize() {
-    if (!this.browser) {
-      this.browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-      });
-    }
-  }
-
-  async cleanup() {
-    if (this.browser) {
-      await this.browser.close();
-      this.browser = null;
-    }
-  }
-
-  async fetchYahooFinanceData(symbol: string): Promise<YahooFinanceData | null> {
+  async getQuote(symbol: string): Promise<YahooFinanceData | null> {
     try {
-      await this.initialize();
+      const url = `${this.baseUrl}/quoteSummary/${symbol}?modules=price`;
+      console.log(`Fetching Yahoo Finance data for ${symbol}...`);
       
-      if (!this.browser) throw new Error('Browser not initialized');
-      
-      const page = await this.browser.newPage();
-      
-      // Set Taiwan locale and timezone
-      await page.setExtraHTTPHeaders({
-        'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8'
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        },
       });
+
+      if (!response.ok) {
+        console.error(`Yahoo Finance API error for ${symbol}: ${response.status} ${response.statusText}`);
+        return null;
+      }
+
+      const data = await response.json() as YahooApiResponse;
       
-      const url = `https://tw.finance.yahoo.com/quote/${symbol}`;
-      await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
-      
-      // Wait for the page to load
-      await page.waitForSelector('[data-symbol]', { timeout: 10000 });
-      
-      const data = await page.evaluate(() => {
-        const priceElement = document.querySelector('[data-testid="qsp-price"]');
-        const changeElement = document.querySelector('[data-testid="qsp-price-change"]');
-        const nameElement = document.querySelector('h1[data-testid="quote-header"]');
-        
-        const priceText = priceElement?.textContent?.replace(/,/g, '') || '0';
-        const changeText = changeElement?.textContent || '+0.00 (+0.00%)';
-        const nameText = nameElement?.textContent || '';
-        
-        // Parse change and percentage
-        const changeMatch = changeText.match(/([-+]?\d+\.?\d*)\s*\(([-+]?\d+\.?\d*)%\)/);
-        const change = changeMatch ? parseFloat(changeMatch[1]) : 0;
-        const changePercent = changeMatch ? parseFloat(changeMatch[2]) : 0;
-        
-        return {
-          price: parseFloat(priceText),
-          change,
-          changePercent,
-          name: nameText.trim()
-        };
-      });
-      
-      await page.close();
+      if (!data.quoteSummary?.result?.[0]?.price) {
+        console.error(`No price data found for ${symbol}`);
+        return null;
+      }
+
+      const price = data.quoteSummary.result[0].price;
       
       return {
-        symbol,
-        name: data.name,
-        price: data.price,
-        change: data.change,
-        changePercent: data.changePercent,
-        lastUpdated: new Date()
+        symbol: price.symbol || symbol,
+        name: price.shortName || price.longName || '',
+        shortName: price.shortName,
+        longName: price.longName,
+        price: price.regularMarketPrice?.raw || 0,
+        change: price.regularMarketChange?.raw || 0,
+        changePercent: price.regularMarketChangePercent?.raw || 0,
+        volume: price.regularMarketVolume?.raw,
+        averageDailyVolume3Month: price.averageDailyVolume3Month?.raw,
+        marketCap: price.marketCap?.raw?.toString(),
+        lastUpdated: new Date(),
       };
-      
     } catch (error) {
-      console.error(`Error fetching Yahoo Finance data for ${symbol}:`, error);
+      console.error(`Error fetching data for ${symbol}:`, error);
       return null;
     }
   }
 
+  async getBatchQuotes(symbols: string[]): Promise<YahooFinanceData[]> {
+    const quotes: YahooFinanceData[] = [];
+    
+    // 避免API限制，每次處理5個股票代號
+    for (let i = 0; i < symbols.length; i += 5) {
+      const batch = symbols.slice(i, i + 5);
+      const batchPromises = batch.map(symbol => this.getQuote(symbol));
+      const batchResults = await Promise.all(batchPromises);
+      
+      batchResults.forEach(quote => {
+        if (quote) {
+          quotes.push(quote);
+        }
+      });
+      
+      // 添加延遲避免過度請求
+      if (i + 5 < symbols.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+    
+    return quotes;
+  }
+
+  async fetchYahooFinanceData(symbol: string): Promise<YahooFinanceData | null> {
+    // 使用新的 API 方法替代 Puppeteer
+    return this.getQuote(symbol);
+  }
+
   async fetchTaiwanMarketData(): Promise<TaiwanMarketData | null> {
     try {
+      const taiwanStocks = this.getTaiwanTop10Stocks();
       const [taiwanIndex, taiwanFutures, ...stocks] = await Promise.all([
-        this.fetchYahooFinanceData('^TWII'), // Taiwan Weighted Index
-        this.fetchYahooFinanceData('TXF'), // Taiwan Index Futures
-        this.fetchYahooFinanceData('2330.TW'), // TSMC
-        this.fetchYahooFinanceData('2454.TW'), // MediaTek
-        this.fetchYahooFinanceData('2317.TW'), // Hon Hai
-        this.fetchYahooFinanceData('2603.TW'), // Evergreen Marine
-        this.fetchYahooFinanceData('3008.TW'), // LARGAN Precision
+        this.getQuote('^TWII'), // Taiwan Weighted Index
+        this.getQuote('TXO'), // Taiwan Index Options (alternative to TXF)
+        ...taiwanStocks.map(stock => this.getQuote(stock.symbol)),
       ]);
       
-      if (!taiwanIndex || !taiwanFutures) {
-        throw new Error('Failed to fetch core Taiwan market data');
+      if (!taiwanIndex) {
+        throw new Error('Failed to fetch Taiwan market index data');
       }
       
       return {
         taiwanIndex,
-        taiwanFutures,
+        taiwanFutures: taiwanFutures || taiwanIndex, // Fallback to index if futures unavailable
         popularStocks: stocks.filter(Boolean) as YahooFinanceData[]
       };
       
@@ -124,66 +141,63 @@ class YahooFinanceService {
 
   async fetchMultipleSymbols(symbols: string[]): Promise<YahooFinanceData[]> {
     try {
-      const promises = symbols.map(symbol => this.fetchYahooFinanceData(symbol));
-      const results = await Promise.all(promises);
-      return results.filter(Boolean) as YahooFinanceData[];
+      return this.getBatchQuotes(symbols);
     } catch (error) {
       console.error('Error fetching multiple symbols:', error);
       return [];
     }
   }
 
-  // Alternative method using Yahoo Finance API (if available)
-  async fetchViaAPI(symbol: string): Promise<YahooFinanceData | null> {
-    try {
-      // Note: This would require a Yahoo Finance API key or a third-party service
-      // For now, we'll use the web scraping method above
-      
-      // Example using a hypothetical API
-      /*
-      const response = await fetch(`https://api.yahoo.com/v1/finance/quote?symbol=${symbol}`);
-      const data = await response.json();
-      
-      return {
-        symbol,
-        name: data.shortName,
-        price: data.regularMarketPrice,
-        change: data.regularMarketChange,
-        changePercent: data.regularMarketChangePercent,
-        volume: data.regularMarketVolume,
-        marketCap: data.marketCap,
-        lastUpdated: new Date()
-      };
-      */
-      
-      return null;
-    } catch (error) {
-      console.error(`Error fetching API data for ${symbol}:`, error);
-      return null;
-    }
+  // 台股前10大權值股列表
+  getTaiwanTop10Stocks() {
+    return [
+      { symbol: '2330.TW', name: '台積電', nameEn: 'TSMC' },
+      { symbol: '2317.TW', name: '鴻海', nameEn: 'Foxconn' },
+      { symbol: '2454.TW', name: '聯發科', nameEn: 'MediaTek' },
+      { symbol: '2308.TW', name: '台達電', nameEn: 'Delta Electronics' },
+      { symbol: '2881.TW', name: '富邦金', nameEn: 'Fubon Financial' },
+      { symbol: '2382.TW', name: '廣達', nameEn: 'Quanta Computer' },
+      { symbol: '2412.TW', name: '中華電', nameEn: 'Chunghwa Telecom' },
+      { symbol: '2882.TW', name: '國泰金', nameEn: 'Cathay Financial' },
+      { symbol: '2891.TW', name: '中信金', nameEn: 'CTBC Financial' },
+      { symbol: '3711.TW', name: '日月光投控', nameEn: 'ASE Group' },
+    ];
+  }
+
+  // 美股投組列表 (根據用戶附圖)
+  getUsStockPortfolio() {
+    return [
+      { symbol: 'VTI', name: 'Vanguard Total Stock Market ETF', weight: 3.31 },
+      { symbol: 'VOO', name: 'Vanguard S&P 500 ETF', weight: 21.59 },
+      { symbol: 'UNH', name: 'UnitedHealth Group Inc', weight: 9.02 },
+      { symbol: 'TSLA', name: 'Tesla Inc', weight: 9.41 },
+      { symbol: 'SOFI', name: 'SoFi Technologies Inc', weight: 2.12 },
+      { symbol: 'PYPL', name: 'PayPal Holdings Inc', weight: 1.37 },
+      { symbol: 'OSCR', name: 'Oscar Health Inc', weight: 1.98 },
+      { symbol: 'ORCL', name: 'Oracle Corporation', weight: 9.43 },
+      { symbol: 'OKLO', name: 'Oklo Inc', weight: 2.45 },
+      { symbol: 'NVDA', name: 'NVIDIA Corporation', weight: 2.71 },
+      { symbol: 'MRVL', name: 'Marvell Technology Inc', weight: 0.68 },
+      { symbol: 'META', name: 'Meta Platforms Inc', weight: 7.66 },
+      { symbol: 'GOOGL', name: 'Alphabet Inc Class A', weight: 6.14 },
+      { symbol: 'ASML', name: 'ASML Holding NV', weight: 8.21 },
+      { symbol: 'AMZN', name: 'Amazon.com Inc', weight: 3.52 },
+      { symbol: 'AMD', name: 'Advanced Micro Devices Inc', weight: 3.18 },
+      { symbol: 'AAPL', name: 'Apple Inc', weight: 4.69 },
+      { symbol: 'PLTR', name: 'Palantir Technologies Inc', weight: 2.52 },
+    ];
   }
 
   // Get popular Taiwan stocks symbols
   getPopularTaiwanStocks(): string[] {
-    return [
-      '2330.TW', // TSMC 台積電
-      '2454.TW', // MediaTek 聯發科
-      '2317.TW', // Hon Hai 鴻海
-      '2603.TW', // Evergreen Marine 長榮海運
-      '3008.TW', // LARGAN Precision 大立光
-      '2002.TW', // China Steel 中鋼
-      '1301.TW', // Formosa Plastics 台塑
-      '2881.TW', // Fubon Financial 富邦金
-      '2886.TW', // Mega Financial 兆豐金
-      '2412.TW', // Chunghwa Telecom 中華電信
-    ];
+    return this.getTaiwanTop10Stocks().map(stock => stock.symbol);
   }
 
   // Get Taiwan index and futures symbols
   getTaiwanIndices(): string[] {
     return [
       '^TWII', // Taiwan Weighted Index 加權指數
-      'TXF',   // Taiwan Index Futures 台指期
+      'TXO',   // Taiwan Index Options 台指選擇權
       '^TWOII', // Taiwan OTC Index 櫃買指數
     ];
   }

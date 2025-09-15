@@ -4,6 +4,9 @@ import {
   newsArticles, 
   aiSummaries, 
   systemConfig,
+  taiwanStocks,
+  usStockPortfolio,
+  stockWatchlist,
   type EconomicIndicator,
   type InsertEconomicIndicator,
   type CalendarEvent,
@@ -13,7 +16,13 @@ import {
   type AiSummary,
   type InsertAiSummary,
   type SystemConfig,
-  type InsertSystemConfig
+  type InsertSystemConfig,
+  type TaiWanStock,
+  type InsertTaiWanStock,
+  type UsStockPortfolio,
+  type InsertUsStockPortfolio,
+  type StockWatchlist,
+  type InsertStockWatchlist
 } from "@shared/schema";
 
 export interface IStorage {
@@ -41,6 +50,24 @@ export interface IStorage {
   getSystemConfig(key: string): Promise<SystemConfig | undefined>;
   setSystemConfig(config: InsertSystemConfig): Promise<SystemConfig>;
   getAllSystemConfig(): Promise<SystemConfig[]>;
+  
+  // Taiwan Stocks
+  getTaiwanStocks(): Promise<TaiWanStock[]>;
+  createTaiwanStock(stock: InsertTaiWanStock): Promise<TaiWanStock>;
+  updateTaiwanStock(symbol: string, stock: Partial<InsertTaiWanStock>): Promise<TaiWanStock>;
+  getTaiwanStockBySymbol(symbol: string): Promise<TaiWanStock | undefined>;
+  
+  // US Stock Portfolio
+  getUsStockPortfolio(): Promise<UsStockPortfolio[]>;
+  createUsStockPortfolio(stock: InsertUsStockPortfolio): Promise<UsStockPortfolio>;
+  updateUsStockPortfolio(symbol: string, stock: Partial<InsertUsStockPortfolio>): Promise<UsStockPortfolio>;
+  getUsStockBySymbol(symbol: string): Promise<UsStockPortfolio | undefined>;
+  
+  // Stock Watchlist
+  getStockWatchlist(): Promise<StockWatchlist[]>;
+  addToWatchlist(stock: InsertStockWatchlist): Promise<StockWatchlist>;
+  removeFromWatchlist(symbol: string): Promise<boolean>;
+  updateWatchlistStock(symbol: string, stock: Partial<InsertStockWatchlist>): Promise<StockWatchlist>;
 }
 
 export class MemStorage implements IStorage {
@@ -49,6 +76,9 @@ export class MemStorage implements IStorage {
   private newsArticles: Map<number, NewsArticle> = new Map();
   private aiSummaries: Map<number, AiSummary> = new Map();
   private systemConfig: Map<string, SystemConfig> = new Map();
+  private taiwanStocks: Map<string, TaiWanStock> = new Map();
+  private usStockPortfolio: Map<string, UsStockPortfolio> = new Map();
+  private stockWatchlist: Map<string, StockWatchlist> = new Map();
   private currentId = 1;
 
   // Economic Indicators
@@ -61,6 +91,7 @@ export class MemStorage implements IStorage {
     const newIndicator: EconomicIndicator = { 
       ...indicator, 
       id, 
+      change: indicator.change ?? null,
       updatedAt: new Date() 
     };
     this.economicIndicators.set(id, newIndicator);
@@ -94,6 +125,7 @@ export class MemStorage implements IStorage {
     const newEvent: CalendarEvent = { 
       ...event, 
       id, 
+      description: event.description ?? null,
       createdAt: new Date() 
     };
     this.calendarEvents.set(id, newEvent);
@@ -122,6 +154,8 @@ export class MemStorage implements IStorage {
     const newArticle: NewsArticle = { 
       ...article, 
       id, 
+      summary: article.summary ?? null,
+      content: article.content ?? null,
       createdAt: new Date() 
     };
     this.newsArticles.set(id, newArticle);
@@ -157,6 +191,8 @@ export class MemStorage implements IStorage {
     const newSummary: AiSummary = { 
       ...summary, 
       id, 
+      keywords: summary.keywords ? (Array.isArray(summary.keywords) ? summary.keywords : null) : null,
+      sentiment: summary.sentiment ?? null,
       createdAt: new Date() 
     };
     this.aiSummaries.set(id, newSummary);
@@ -181,6 +217,120 @@ export class MemStorage implements IStorage {
 
   async getAllSystemConfig(): Promise<SystemConfig[]> {
     return Array.from(this.systemConfig.values());
+  }
+
+  // Taiwan Stocks
+  async getTaiwanStocks(): Promise<TaiWanStock[]> {
+    return Array.from(this.taiwanStocks.values());
+  }
+
+  async createTaiwanStock(stock: InsertTaiWanStock): Promise<TaiWanStock> {
+    const newStock: TaiWanStock = {
+      ...stock,
+      id: this.currentId++,
+      price: stock.price ?? null,
+      change: stock.change ?? null,
+      changePercent: stock.changePercent ?? null,
+      volume: stock.volume ?? null,
+      marketCap: stock.marketCap ?? null,
+      isActive: stock.isActive ?? true,
+      updatedAt: new Date()
+    };
+    this.taiwanStocks.set(stock.symbol, newStock);
+    return newStock;
+  }
+
+  async updateTaiwanStock(symbol: string, stock: Partial<InsertTaiWanStock>): Promise<TaiWanStock> {
+    const existing = this.taiwanStocks.get(symbol);
+    if (!existing) throw new Error("Taiwan stock not found");
+    
+    const updated: TaiWanStock = {
+      ...existing,
+      ...stock,
+      updatedAt: new Date()
+    };
+    this.taiwanStocks.set(symbol, updated);
+    return updated;
+  }
+
+  async getTaiwanStockBySymbol(symbol: string): Promise<TaiWanStock | undefined> {
+    return this.taiwanStocks.get(symbol);
+  }
+
+  // US Stock Portfolio
+  async getUsStockPortfolio(): Promise<UsStockPortfolio[]> {
+    return Array.from(this.usStockPortfolio.values());
+  }
+
+  async createUsStockPortfolio(stock: InsertUsStockPortfolio): Promise<UsStockPortfolio> {
+    const newStock: UsStockPortfolio = {
+      ...stock,
+      id: this.currentId++,
+      price: stock.price ?? null,
+      change: stock.change ?? null,
+      changePercent: stock.changePercent ?? null,
+      volume: stock.volume ?? null,
+      weight: stock.weight ?? null,
+      avgVolume: stock.avgVolume ?? null,
+      isActive: stock.isActive ?? true,
+      updatedAt: new Date()
+    };
+    this.usStockPortfolio.set(stock.symbol, newStock);
+    return newStock;
+  }
+
+  async updateUsStockPortfolio(symbol: string, stock: Partial<InsertUsStockPortfolio>): Promise<UsStockPortfolio> {
+    const existing = this.usStockPortfolio.get(symbol);
+    if (!existing) throw new Error("US stock not found");
+    
+    const updated: UsStockPortfolio = {
+      ...existing,
+      ...stock,
+      updatedAt: new Date()
+    };
+    this.usStockPortfolio.set(symbol, updated);
+    return updated;
+  }
+
+  async getUsStockBySymbol(symbol: string): Promise<UsStockPortfolio | undefined> {
+    return this.usStockPortfolio.get(symbol);
+  }
+
+  // Stock Watchlist
+  async getStockWatchlist(): Promise<StockWatchlist[]> {
+    return Array.from(this.stockWatchlist.values());
+  }
+
+  async addToWatchlist(stock: InsertStockWatchlist): Promise<StockWatchlist> {
+    const newStock: StockWatchlist = {
+      ...stock,
+      id: this.currentId++,
+      price: stock.price ?? null,
+      change: stock.change ?? null,
+      changePercent: stock.changePercent ?? null,
+      volume: stock.volume ?? null,
+      addedAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.stockWatchlist.set(stock.symbol, newStock);
+    return newStock;
+  }
+
+  async removeFromWatchlist(symbol: string): Promise<boolean> {
+    return this.stockWatchlist.delete(symbol);
+  }
+
+  async updateWatchlistStock(symbol: string, stock: Partial<InsertStockWatchlist>): Promise<StockWatchlist> {
+    const existing = this.stockWatchlist.get(symbol);
+    if (!existing) throw new Error("Stock not found in watchlist");
+    
+    const updated: StockWatchlist = {
+      ...existing,
+      ...stock,
+      updatedAt: new Date()
+    };
+    this.stockWatchlist.set(symbol, updated);
+    return updated;
   }
 }
 
